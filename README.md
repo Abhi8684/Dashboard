@@ -1,17 +1,30 @@
-# Task Management Dashboard
+# 📊 Kannetn Task Management Dashboard
 
-A Python web application that accepts Excel file uploads and generates an interactive analytics dashboard matching your task management data.
+A Python web application that accepts Excel file uploads and generates an interactive analytics dashboard for workshop daily activity tracking.
 
-## 🚀 Quick Start (Local)
+Built with **Flask**, **Plotly Dash**, and **Pandas** — featuring a modern dark-themed UI with drag-and-drop file uploads and real-time KPI analytics.
+
+---
+
+## 🚀 Quick Start
 
 ```bash
-# 1. Install dependencies
+# 1. Clone the repository
+git clone https://github.com/YOUR_USERNAME/Dashboard.git
+cd Dashboard
+
+# 2. Create a virtual environment (recommended)
+python -m venv venv
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # macOS / Linux
+
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# 2. Run the app
+# 4. Run the application
 python app.py
 
-# 3. Open your browser
+# 5. Open your browser
 # http://localhost:5000
 ```
 
@@ -22,17 +35,19 @@ Upload your Excel file → Dashboard auto-generates at `/dashboard/`
 ## 📁 Project Structure
 
 ```
-├── app.py               # Flask entry point + file upload handler
-├── dashboard.py         # Plotly Dash app (all charts + KPI cards)
-├── data_processor.py    # Excel parsing, KPI calculations, chart data
+Dashboard/
+├── app.py                # Flask entry point + file upload handler
+├── dashboard.py          # Plotly Dash app (all charts + KPI cards)
+├── data_processor.py     # Excel parsing, KPI calculations, chart data
 ├── templates/
-│   └── upload.html      # Upload UI page
+│   └── upload.html       # Upload UI (drag-and-drop + progress bar)
 ├── static/
-│   └── style.css        # Dark-theme styles
-├── uploads/             # Auto-created, stores uploaded files
-├── requirements.txt
-├── Procfile             # For Render/Railway deployment
-├── runtime.txt          # Python version pin
+│   └── style.css         # Dark-theme styles with animations
+├── test_data/            # Sample Excel files for testing
+├── uploads/              # Auto-created, stores uploaded files
+├── requirements.txt      # Python dependencies
+├── Procfile              # Gunicorn start command for deployment
+├── runtime.txt           # Python version pin (3.11.9)
 └── README.md
 ```
 
@@ -40,80 +55,100 @@ Upload your Excel file → Dashboard auto-generates at `/dashboard/`
 
 ## 📊 Dashboard Features
 
-| Feature | Description |
-|---------|-------------|
-| **KPI Cards** | Total Tasks, Completed, Delayed, Today's Tasks, Completed Today |
-| **Bar Chart** | Monthly completed tasks by asset/panel type |
-| **Horizontal Bar** | Today's ongoing tasks by asset type |
-| **Pie Chart** | Overall status distribution (Completed / Ongoing / Hold) |
-| **Stacked Bar** | Daily breakdown of task statuses over time |
+| Feature              | Description                                                      |
+| -------------------- | ---------------------------------------------------------------- |
+| **KPI Cards**        | Total Tasks, Completed, Delayed, Today's Tasks, Completed Today  |
+| **Bar Chart**        | Completed tasks grouped by asset/panel type for the month        |
+| **Horizontal Bar**   | Today's ongoing tasks by asset type                              |
+| **Pie Chart**        | Overall status distribution (Completed / Ongoing / Hold)         |
+| **Stacked Bar**      | Daily breakdown of task statuses over time                       |
+
+### Upload Page
+
+- Modern drag-and-drop file upload interface
+- File type validation (`.xlsx`, `.xls`)
+- Upload progress bar with animated spinner
+- Expandable column hint guide
+- Max file size: **16 MB**
 
 ---
 
 ## 📋 Expected Excel Columns
 
-| Column | Description |
-|--------|-------------|
-| `Area` | Work area / bay |
-| `Date` | Task date (dd-mm-yyyy) |
-| `Employee Name` | Assigned worker |
-| `Panel` | Asset / equipment type |
-| `Fleet Number` | Equipment ID |
-| `Task Description` | Work performed |
-| `Task Start Time (Today)` | HH:MM format |
-| `Task End Time (Today)` | HH:MM format |
-| `Total Hours` | Numeric hours |
-| `Current Status` | `Completed` / `Ongoing` / `Hold` |
+The application expects a **Daily Activity Tracker** Excel file with these columns:
+
+| Column                     | Description                                    |
+| -------------------------- | ---------------------------------------------- |
+| `Area`                     | Work area / bay                                |
+| `Date`                     | Task date (dd-mm-yyyy)                         |
+| `Employee Name`            | Assigned worker                                |
+| `Panel`                    | Asset / equipment type                         |
+| `Fleet Number`             | Equipment ID                                   |
+| `Task Description`         | Work performed                                 |
+| `Task Start Time (Today)`  | HH:MM format                                   |
+| `Task End Time (Today)`    | HH:MM format                                   |
+| `Total Hours`              | Numeric hours                                  |
+| `Current Status`           | `Completed` / `Ongoing` / `Hold`               |
+
+> [!NOTE]
+> For multi-sheet workbooks, the app looks for a sheet named **`Daily_Activity_Tracker`**. Single-sheet files are read directly.
 
 ---
 
-## ☁️ Deploy to Render.com (Free, No Docker)
+## 🛠️ Tech Stack
 
-### Step 1 — Push to GitHub
-```bash
-git init
-git add .
-git commit -m "Initial dashboard"
-git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
-git push -u origin main
-```
+| Technology      | Purpose                              |
+| --------------- | ------------------------------------ |
+| **Flask**       | Web server, routing, file uploads    |
+| **Plotly Dash** | Interactive dashboard & charting     |
+| **Pandas**      | Data processing & KPI computation   |
+| **openpyxl**    | Excel file parsing                   |
+| **Gunicorn**    | Production WSGI server               |
+| **Inter Font**  | Modern UI typography (Google Fonts)  |
 
-### Step 2 — Create a Web Service on Render
-1. Go to [render.com](https://render.com) → Sign up (free)
-2. Click **New** → **Web Service**
-3. Connect your GitHub repo
-4. Fill in the settings:
-   - **Name**: `task-dashboard` (or any name)
-   - **Runtime**: `Python 3`
+---
+
+## ☁️ Deployment
+
+### Deploy to Render.com
+
+1. Push your code to GitHub
+2. Go to [render.com](https://render.com) → **New** → **Web Service**
+3. Connect your GitHub repo and configure:
+   - **Runtime**: Python 3
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `gunicorn app:server`
-   - **Plan**: `Free`
-5. Add an **Environment Variable**:
-   - Key: `SECRET_KEY` | Value: any long random string
-6. Click **Create Web Service**
-7. Wait ~2 minutes for the first deploy
-8. Your app is live at `https://your-app.onrender.com` 🎉
+   - **Plan**: Free
+4. Add environment variable: `SECRET_KEY` = *(any long random string)*
+5. Click **Create Web Service** — live in ~2 minutes
 
-### Alternative: Railway.app
-1. Go to [railway.app](https://railway.app) → sign up with GitHub
-2. Click **New Project** → **Deploy from GitHub repo**
-3. Select your repo → it auto-detects Python and uses the `Procfile`
-4. Add env var `SECRET_KEY`
-5. Click **Deploy** → Live in ~1 minute
+### Deploy to Railway.app
+
+1. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo**
+2. Select your repo (auto-detects Python via `Procfile`)
+3. Add environment variable: `SECRET_KEY`
+4. Click **Deploy** — live in ~1 minute
 
 ---
 
 ## 🔧 Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SECRET_KEY` | `kannetn-dashboard-secret-2026` | Flask session secret (change in production!) |
-| `PORT` | `5000` | Port (auto-set by Render/Railway) |
+| Variable     | Default                            | Description                               |
+| ------------ | ---------------------------------- | ----------------------------------------- |
+| `SECRET_KEY` | `kannetn-dashboard-secret-2026`    | Flask session secret (change in production!) |
+| `PORT`       | `5000`                             | Server port (auto-set by hosting platforms)  |
 
 ---
 
 ## 📝 Notes
 
-- Uploaded files are stored in the `uploads/` folder. The dashboard always shows the **most recently uploaded** file.
-- For multi-user production use, consider adding a database (SQLite) to store per-session file paths.
-- The `/dashboard/` route is powered by Plotly Dash, mounted inside Flask.
+- The dashboard always displays data from the **most recently uploaded** file
+- Uploaded files are stored in the `uploads/` folder
+- The `/dashboard/` route is powered by **Plotly Dash**, mounted inside Flask
+- For multi-user production use, consider adding a database to store per-session file paths
+
+---
+
+## 📄 License
+
+Kannetn Project © 2026
