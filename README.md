@@ -1,4 +1,4 @@
-# 📊 Kannetn Task Management Dashboard
+# 📊 Task Management Dashboard
 
 A Python web application that accepts Excel file uploads and generates an interactive analytics dashboard for workshop daily activity tracking.
 
