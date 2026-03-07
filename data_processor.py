@@ -2,8 +2,13 @@ import pandas as pd
 from datetime import datetime, date
 
 
-def load_excel(filepath: str, sheet_name: str | None = None) -> pd.DataFrame:
-    """Load and clean the Excel file into a DataFrame."""
+def load_excel(filepath, sheet_name: str | None = None) -> pd.DataFrame:
+    """Load and clean the Excel file into a DataFrame.
+
+    Args:
+        filepath: A file path string or a file-like object (e.g. BytesIO).
+        sheet_name: Optional sheet name to read from multi-sheet workbooks.
+    """
     df = pd.read_excel(filepath, sheet_name=sheet_name or 0, engine="openpyxl")
 
     # Normalize column names: strip whitespace, lowercase for internal use

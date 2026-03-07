@@ -1,7 +1,9 @@
 import dash
 from dash import dcc, html, Input, Output, callback
 import plotly.graph_objects as go
+import gzip
 import os
+from io import BytesIO
 
 from data_processor import (
     load_excel,
@@ -41,7 +43,7 @@ def _get_latest_file():
         files = [
             os.path.join(UPLOAD_DIR, f)
             for f in os.listdir(UPLOAD_DIR)
-            if f.lower().endswith((".xlsx", ".xls"))
+            if f.lower().endswith((".xlsx", ".xls", ".xlsx.gz", ".xls.gz"))
         ]
         if files:
             return max(files, key=os.path.getmtime)
@@ -138,9 +140,17 @@ def create_dash_app(flask_server):
             )
 
         try:
+            # Decompress .gz files into memory for reading
+            if excel_path.endswith(".gz"):
+                with gzip.open(excel_path, "rb") as f:
+                    file_data = BytesIO(f.read())
+            else:
+                with open(excel_path, "rb") as f:
+                    file_data = BytesIO(f.read())
+
             # Detect if the workbook has multiple sheets and pick the right one
             from openpyxl import load_workbook as _lwb
-            wb = _lwb(excel_path, read_only=True, data_only=True)
+            wb = _lwb(file_data, read_only=True, data_only=True)
             sheet_names = wb.sheetnames
             wb.close()
 
@@ -148,7 +158,9 @@ def create_dash_app(flask_server):
             if len(sheet_names) > 1 and "Daily_Activity_Tracker" in sheet_names:
                 target_sheet = "Daily_Activity_Tracker"
 
-            df = load_excel(excel_path, sheet_name=target_sheet)
+            # Reset BytesIO position for pandas to read from the beginning
+            file_data.seek(0)
+            df = load_excel(file_data, sheet_name=target_sheet)
 
             kpis = compute_kpis(df)
             month_label = get_month_label(df)

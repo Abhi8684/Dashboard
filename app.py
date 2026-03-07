@@ -1,5 +1,7 @@
 import os
 import uuid
+import gzip
+import shutil
 from flask import Flask, render_template, request, redirect, url_for, session
 from werkzeug.utils import secure_filename
 from openpyxl import load_workbook
@@ -82,8 +84,14 @@ def upload_file():
     else:
         session.pop("target_sheet", None)
 
-    # Store path in session so the Dash app can read it
-    session["excel_path"] = filepath
+    # Compress the file to save disk space
+    gz_path = filepath + ".gz"
+    with open(filepath, "rb") as f_in, gzip.open(gz_path, "wb") as f_out:
+        shutil.copyfileobj(f_in, f_out)
+    os.remove(filepath)  # delete uncompressed original
+
+    # Store compressed path in session so the Dash app can read it
+    session["excel_path"] = gz_path
 
     return redirect("/dashboard/")
 
