@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Task Dashboard – Upload Excel</title>
+  <meta name="description" content="Upload your Excel task data to generate an interactive management dashboard." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="page-wrapper">
+
+    <!-- Animated background particles -->
+    <div class="bg-particles">
+      <span></span><span></span><span></span>
+      <span></span><span></span><span></span>
+    </div>
+
+    <div class="card">
+      <!-- Logo/brand -->
+      <div class="brand">
+        <div class="brand-icon">📊</div>
+        <h1>Task Dashboard</h1>
+        <p class="subtitle">Upload your Excel file to generate an interactive analytics dashboard.</p>
+      </div>
+
+      <!-- Error message -->
+      {% if error %}
+      <div class="alert alert-error">
+        <span class="alert-icon">⚠</span>
+        <span>{{ error }}</span>
+      </div>
+      {% endif %}
+
+      <!-- Upload form -->
+      <form id="upload-form" action="/upload" method="POST" enctype="multipart/form-data">
+        <div class="drop-zone" id="drop-zone">
+          <div class="drop-zone-inner">
+            <div class="drop-icon">📂</div>
+            <p class="drop-title">Drag &amp; Drop your Excel file here</p>
+            <p class="drop-sub">or click to browse</p>
+            <p class="drop-formats">Supported formats: .xlsx, .xls</p>
+          </div>
+          <input
+            type="file"
+            id="file-input"
+            name="file"
+            accept=".xlsx,.xls"
+            class="file-input"
+          />
+        </div>
+
+        <!-- Selected file info -->
+        <div class="file-info" id="file-info" style="display:none;">
+          <span class="file-info-icon">✅</span>
+          <span id="file-name-text">—</span>
+          <button type="button" class="clear-btn" id="clear-btn" title="Remove">✕</button>
+        </div>
+
+        <!-- Progress bar (shown during upload) -->
+        <div class="progress-wrap" id="progress-wrap" style="display:none;">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+
+        <button type="submit" class="btn-primary" id="submit-btn" disabled>
+          <span id="btn-label">📤 Generate Dashboard</span>
+          <span id="btn-spinner" class="spinner" style="display:none;"></span>
+        </button>
+      </form>
+
+      <!-- Expected columns hint -->
+      <details class="hint-box">
+        <summary>What columns are expected?</summary>
+        <ul>
+          <li><strong>Area</strong> – Work area or bay name</li>
+          <li><strong>Date</strong> – Task date (dd-mm-yyyy)</li>
+          <li><strong>Employee Name</strong> – Assigned worker</li>
+          <li><strong>Panel</strong> – Asset / equipment type</li>
+          <li><strong>Fleet Number</strong> – Asset ID</li>
+          <li><strong>Task Description</strong> – What was done</li>
+          <li><strong>Task Start Time (Today)</strong> – HH:MM</li>
+          <li><strong>Task End Time (Today)</strong> – HH:MM</li>
+          <li><strong>Total Hours</strong> – Numeric</li>
+          <li><strong>Current Status</strong> – Completed / Ongoing / Hold</li>
+        </ul>
+      </details>
+    </div>
+
+    <footer class="footer">
+      <span>Kannetn Project &copy; 2026</span>
+    </footer>
+  </div>
+
+  <script>
+    const dropZone   = document.getElementById('drop-zone');
+    const fileInput  = document.getElementById('file-input');
+    const fileInfo   = document.getElementById('file-info');
+    const fileNameTx = document.getElementById('file-name-text');
+    const clearBtn   = document.getElementById('clear-btn');
+    const submitBtn  = document.getElementById('submit-btn');
+    const form       = document.getElementById('upload-form');
+    const progressWr = document.getElementById('progress-wrap');
+    const progressBr = document.getElementById('progress-bar');
+    const btnLabel   = document.getElementById('btn-label');
+    const btnSpinner = document.getElementById('btn-spinner');
+
+    // Open file picker on drop-zone click
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+
+    // Drag-and-drop
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+        handleFile(file);
+      }
+    });
+
+    function handleFile(file) {
+      if (!file) return;
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (!['xlsx', 'xls'].includes(ext)) {
+        alert('Please upload a valid Excel file (.xlsx or .xls)');
+        return;
+      }
+      fileNameTx.textContent = `${file.name}  (${(file.size / 1024).toFixed(1)} KB)`;
+      fileInfo.style.display = 'flex';
+      submitBtn.disabled = false;
+    }
+
+    clearBtn.addEventListener('click', () => {
+      fileInput.value = '';
+      fileInfo.style.display = 'none';
+      submitBtn.disabled = true;
+    });
+
+    // Animate progress on submit
+    form.addEventListener('submit', () => {
+      progressWr.style.display = 'block';
+      btnLabel.style.display = 'none';
+      btnSpinner.style.display = 'inline-block';
+      submitBtn.disabled = true;
+
+      let width = 0;
+      const interval = setInterval(() => {
+        width = Math.min(width + Math.random() * 15, 90);
+        progressBr.style.width = width + '%';
+        if (width >= 90) clearInterval(interval);
+      }, 200);
+    });
+  </script>
+</body>
+</html>
