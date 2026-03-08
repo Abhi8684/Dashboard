@@ -1,0 +1,146 @@
+# Chat API — Multi-turn Conversation with Session Management & Sources
+
+Redesign the `/chat` endpoint to support multi-turn conversations, persist chat sessions/messages in PostgreSQL, auto-generate session titles, and return structured source references from Azure AI Search.
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Database Schema Changes** — Two new tables (`chat_sessions`, `messages`) plus a new `message_sources` table will be created. The existing `users` table is unchanged. You'll need to run a migration or manually create these tables in Azure PostgreSQL since the app currently doesn't auto-create tables.
+
+> [!WARNING]
+> **Breaking Change** — The `/chat` request/response format changes completely. Any existing frontend calling this endpoint will need to be updated.
+
+## Proposed Changes
+
+### Database Models
+
+#### [MODIFY] [models.py](file:///d:/Entelika/2025/Astang%20Hridayam/ChatBot/app/db/models.py)
+
+Add three new SQLAlchemy models:
+
+- **`ChatSession`** — `chat_id` (UUID PK), `user_id` (FK → users), `title`, `created_at`, `updated_at`
+- **`Message`** — `message_id` (UUID PK), `chat_id` (FK → chat_sessions), `role`, `content`, `created_at`
+- **`MessageSource`** — `source_id` (UUID PK), `message_id` (FK → messages), `href` (blob URL), `title` (book title), `description` (sthana > chapter > sub_chapter + page info), `label` (integer, source number)
+
+The `MessageSource` table stores the references attached to each assistant message, matching the `sources` array in the response.
+
+---
+
+### Pydantic Schemas
+
+#### [MODIFY] [chat.py](file:///d:/Entelika/2025/Astang%20Hridayam/ChatBot/app/schemas/chat.py)
+
+Replace existing schemas with:
+
+**Request:**
+```python
+class MessageItem(BaseModel):
+    role: str          # "user" or "assistant"
+    content: str
+
+class ChatRequest(BaseModel):
+    chat_id: str | None = None   # None → new session
+    messages: list[MessageItem]  # full conversation so far
+```
+
+**Response:**
+```python
+class SourceItem(BaseModel):
+    id: str
+    href: str
+    title: str
+    description: str
+    label: int
+
+class MessageOut(BaseModel):
+    id: int
+    role: str
+    content: str
+    sources: list[SourceItem] | None = None
+
+class ChatResponse(BaseModel):
+    chat_id: str
+    messages: list[MessageOut]  # returns entire conversation
+```
+
+---
+
+### Chat Service
+
+#### [MODIFY] [chat_service.py](file:///d:/Entelika/2025/Astang%20Hridayam/ChatBot/app/services/chat_service.py)
+
+Refactor [process_chat_prompt](file:///d:/Entelika/2025/Astang%20Hridayam/ChatBot/app/services/chat_service.py#61-106) → [process_chat](file:///d:/Entelika/2025/Astang%20Hridayam/ChatBot/app/services/chat_service.py#61-106):
+
+1. Accept the full `messages` list (for context).
+2. Embed only the **latest user message** for vector search.
+3. Build the system prompt with retrieved context (same as today).
+4. Send the full message history to GPT for multi-turn awareness.
+5. Return the assistant reply **and** the structured sources list.
+6. Add a `generate_title(prompt)` function that asks GPT to produce a short session title from the first user message.
+
+---
+
+### API Route
+
+#### [MODIFY] [routes.py](file:///d:/Entelika/2025/Astang%20Hridayam/ChatBot/app/api/routes.py)
+
+Rewrite the `/chat` endpoint:
+
+1. Accept [ChatRequest](file:///d:/Entelika/2025/Astang%20Hridayam/ChatBot/app/schemas/chat.py#3-5) (messages array + optional `chat_id`).
+2. If `chat_id` is `None` → create a new `ChatSession`, generate a title from the first message.
+3. If `chat_id` is provided → load existing session, verify it belongs to the current user.
+4. Call [process_chat(messages)](file:///d:/Entelika/2025/Astang%20Hridayam/ChatBot/app/services/chat_service.py#61-106) to get the AI reply + sources.
+5. Persist all new messages (user + assistant) in the `messages` table.
+6. Persist sources in `message_sources` table.
+7. Return the full conversation with sequential `id` numbering and sources on the assistant message.
+
+The route now needs a `db: AsyncSession` dependency.
+
+---
+
+### SQL Migration
+
+#### [NEW] [create_chat_tables.sql](file:///d:/Entelika/2025/Astang%20Hridayam/ChatBot/scripts/create_chat_tables.sql)
+
+SQL script the user can run manually to create the new tables:
+
+```sql
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    chat_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id INTEGER REFERENCES users(userid) ON DELETE CASCADE,
+    title VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_id UUID REFERENCES chat_sessions(chat_id) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS message_sources (
+    source_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    message_id UUID REFERENCES messages(message_id) ON DELETE CASCADE,
+    href TEXT,
+    title VARCHAR(500),
+    description TEXT,
+    label INTEGER NOT NULL
+);
+```
+
+## Verification Plan
+
+### Manual Verification
+
+1. Run `python -m app.main` (or `uvicorn app.main:app --reload`) to start the server.
+2. Use the test HTML page to get a JWT token via Google auth.
+3. **Test new session** — `POST /api/v1/chat` with `{"messages": [{"role": "user", "content": "What is Ashtanga Hridayam?"}]}` (no `chat_id`). Verify:
+   - Response contains a `chat_id`
+   - Response `messages` array has the user message + assistant reply with `sources`
+   - Database has a new row in `chat_sessions` with a generated title
+   - Database has rows in `messages` and `message_sources`
+4. **Test existing session** — Send another request with the returned `chat_id` and the full messages array. Verify the assistant responds with awareness of previous context.
+5. **Test unauthorized access** — Send a request with a `chat_id` belonging to a different user. Verify 403 is returned.
